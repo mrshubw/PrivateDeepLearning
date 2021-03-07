@@ -2,7 +2,7 @@
 import numpy as np;
 import tensorflow as tf;
 from tensorflow.python.framework import ops;
-from tensorflow.examples.tutorials.mnist import input_data;
+from tensorflow_core.examples.tutorials.mnist import input_data;
 import argparse;
 import numpy as np
 import math
@@ -29,7 +29,7 @@ def compute_sigma(epsilon, delta):
 
 # compute sigma using moment accountant given epsilon
 def comp_sigma(q,T,delta,epsilon):
-    c_2 = 4 * 1.26 / (0.01 * np.sqrt(10000 * np.log(100000))) # c_2 = 1.485
+    c_2 = 4 * 1.26 / (0.01 * np.sqrt(10000 * np.log(100000)))  # c_2 = 1.485
     return c_2 * q * np.sqrt(T * np.log(1 / delta)) / epsilon
 
 # compute epsilon using abadi's code given sigma
@@ -60,32 +60,34 @@ def max_pool_2x2(x):
 
 FLAGS = None;
 
-#target_eps = [0.125,0.25,0.5,1,2,4,8]
-target_eps = [0.5];
 
-def main(_):
-  clip_bound = 0.01 # 'the clip bound of the gradients'
-  clip_bound_2 = 1/1.5 #'the clip bound for r_kM'
+def main(sigma_type=0, sigma=5, clip_bound=0.01, batch_size=600, num_steps=200, target_eps=None, target_delta=[0.00001]):
+  # target_eps = [0.125,0.25,0.5,1,2,4,8]
+  #target_eps = [0.5];
+  #target_delta = [0.00001]
 
-  small_num = 1e-5 # 'a small number'
-  large_num = 1e5 # a large number'
-  num_images = 60000 # 'number of images N'
+  #clip_bound = 0.01 # 'the clip bound of the gradients'
+  #clip_bound_2 = 1/1.5 #'the clip bound for r_kM'
 
-  batch_size = 600 # 'batch_size L'
-  sample_rate = 600/60000 # 'sample rate q = L / N'
-  num_steps = 160000 # 'number of steps T = E * N / L = E / q'
-  num_epoch = 24 # 'number of epoches E'
+  #small_num = 1e-5 # 'a small number'
+  #large_num = 1e5 # a large number'
+  #num_images = 60000 # 'number of images N'
 
-  sigma = 5 # 'sigma'
+  #batch_size = 600 # 'batch_size L'
+  #sample_rate = 600/60000 # 'sample rate q = L / N'
+  #num_steps = 160000 # 'number of steps T = E * N / L = E / q'
+  #num_epoch = 24 # 'number of epoches E'
+
+  #sigma = 5 # 'sigma'
   delta = 1e-5 # 'delta'
 
-  lambd = 1e3 # 'exponential distribution parameter'
+  #lambd = 1e3 # 'exponential distribution parameter'
 
-  iterative_clip_step = 2 # 'iterative_clip_step'
+  #iterative_clip_step = 2 # 'iterative_clip_step'
 
-  clip = 1 # 'whether to clip the gradient'
-  noise = 0 # 'whether to add noise'
-  redistribute = 0 # 'whether to redistribute the noise'
+  #clip = 1 # 'whether to clip the gradient'
+  #noise = 0 # 'whether to add noise'
+  #redistribute = 0 # 'whether to redistribute the noise'
 
   D = 60000;
   
@@ -138,57 +140,91 @@ def main(_):
   opt = GradientDescentOptimizer(learning_rate=1e-2)
   
   #compute gradient
-  gw_W1 = tf.gradients(cross_entropy,W_conv1)[0] # gradient of W1
-  gb1 = tf.gradients(cross_entropy,b_conv1)[0] # gradient of b1
+  gw_W1 = tf.gradients(cross_entropy, W_conv1)[0]  # gradient of W1
+  gb1 = tf.gradients(cross_entropy, b_conv1)[0]  # gradient of b1
 
-  gw_W2 = tf.gradients(cross_entropy,W_conv2)[0] # gradient of W2
-  gb2 = tf.gradients(cross_entropy,b_conv2)[0] # gradient of b2
+  gw_W2 = tf.gradients(cross_entropy, W_conv2)[0]  # gradient of W2
+  gb2 = tf.gradients(cross_entropy, b_conv2)[0]  # gradient of b2
 
-  gw_Wf1 = tf.gradients(cross_entropy,W_fc1)[0] # gradient of W_fc1
-  gbf1 = tf.gradients(cross_entropy,b_fc1)[0] # gradient of b_fc1
+  gw_Wf1 = tf.gradients(cross_entropy, W_fc1)[0]  # gradient of W_fc1
+  gbf1 = tf.gradients(cross_entropy, b_fc1)[0]  # gradient of b_fc1
         
-  gw_Wf2 = tf.gradients(cross_entropy,W_fc2)[0] # gradient of W_fc2
-  gbf2 = tf.gradients(cross_entropy,b_fc2)[0] # gradient of b_fc2
+  gw_Wf2 = tf.gradients(cross_entropy, W_fc2)[0]  # gradient of W_fc2
+  gbf2 = tf.gradients(cross_entropy, b_fc2)[0]  # gradient of b_fc2
 
   #clip gradient
-  gw_W1 = tf.clip_by_norm(gw_W1,clip_bound)
-  gw_W2 = tf.clip_by_norm(gw_W2,clip_bound)
-  gw_Wf1 = tf.clip_by_norm(gw_Wf1,clip_bound)
-  gw_Wf2 = tf.clip_by_norm(gw_Wf2,clip_bound)
+  gw_W1 = tf.clip_by_norm(gw_W1, clip_bound)
+  gw_W2 = tf.clip_by_norm(gw_W2, clip_bound)
+  gw_Wf1 = tf.clip_by_norm(gw_Wf1, clip_bound)
+  gw_Wf2 = tf.clip_by_norm(gw_Wf2, clip_bound)
   
   #sigma = FLAGS.sigma # when comp_eps(lmbda,q,sigma,T,delta)==epsilon
 
   #sensitivity = 2 * FLAGS.clip_bound #adjacency matrix with one tuple different
   sensitivity = clip_bound #adjacency matrix with one more tuple
-  
-  gw_W1 += tf.random_normal(shape=tf.shape(gw_W1), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gb1 += tf.random_normal(shape=tf.shape(gb1), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gw_W2 += tf.random_normal(shape=tf.shape(gw_W2), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gb2 += tf.random_normal(shape=tf.shape(gb2), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gw_Wf1 += tf.random_normal(shape=tf.shape(gw_Wf1), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gbf1 += tf.random_normal(shape=tf.shape(gbf1), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gw_Wf2 += tf.random_normal(shape=tf.shape(gw_Wf2), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
-  gbf2 += tf.random_normal(shape=tf.shape(gbf2), mean=0.0, stddev = (sigma * sensitivity)**2, dtype=tf.float32)
+
+  if sigma_type == 1:
+      gw_W1 += tf.multiply(tf.random_normal(shape=tf.shape(gw_W1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                           tf.multiply(tf.multiply(gw_W1, gw_W1), 1.0/sigma))
+      gb1 += tf.multiply(tf.random_normal(shape=tf.shape(gb1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                         tf.multiply(tf.multiply(gb1, gb1), 1.0 / sigma))
+      gw_W2 += tf.multiply(tf.random_normal(shape=tf.shape(gw_W2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                           tf.multiply(tf.multiply(gw_W2, gw_W2), 1.0 / sigma))
+      gb2 += tf.multiply(tf.random_normal(shape=tf.shape(gb2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                         tf.multiply(tf.multiply(gb2, gb2), 1.0 / sigma))
+      gw_Wf1 += tf.multiply(tf.random_normal(shape=tf.shape(gw_Wf1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                            tf.multiply(tf.multiply(gw_Wf1, gw_Wf1), 1.0 / sigma))
+      gbf1 += tf.multiply(tf.random_normal(shape=tf.shape(gbf1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                          tf.multiply(tf.multiply(gbf1, gbf1), 1.0 / sigma))
+      gw_Wf2 += tf.multiply(tf.random_normal(shape=tf.shape(gw_Wf2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                            tf.multiply(tf.multiply(gw_Wf2, gw_Wf2), 1.0 / sigma))
+      gbf2 += tf.multiply(tf.random_normal(shape=tf.shape(gbf2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32),
+                          tf.multiply(tf.multiply(gbf2, gbf2), 1.0 / sigma))
+  else:
+      gw_W1 += tf.random_normal(shape=tf.shape(gw_W1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gb1 += tf.random_normal(shape=tf.shape(gb1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gw_W2 += tf.random_normal(shape=tf.shape(gw_W2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gb2 += tf.random_normal(shape=tf.shape(gb2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gw_Wf1 += tf.random_normal(shape=tf.shape(gw_Wf1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gbf1 += tf.random_normal(shape=tf.shape(gbf1), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gw_Wf2 += tf.random_normal(shape=tf.shape(gw_Wf2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
+      gbf2 += tf.random_normal(shape=tf.shape(gbf2), mean=0.0, stddev=(sigma * sensitivity) ** 2, dtype=tf.float32)
 
   train_step = opt.apply_gradients([(gw_W1,W_conv1),(gb1,b_conv1),(gw_W2,W_conv2),(gb2,b_conv2),(gw_Wf1,W_fc1),(gbf1,b_fc1),(gw_Wf2,W_fc2),(gbf2,b_fc2)]);
 
   correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1));
   accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
 
+  train_accuracy = []
+  privacy_loss = []
+
   start_time = time.time();
   for i in range(num_steps):
     batch = mnist.train.next_batch(batch_size);
     train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5});
 
-    if i%100 == 0:
-      #train_accuracy = accuracy.eval(feed_dict={x:batch[0], y_: batch[1], keep_prob: 1.0});
-      #print("step \t %d \t training accuracy \t %g"%(i, train_accuracy));
-      print("step \t %d \t test accuracy \t %g"%(i, accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})));
-      #epsilon = comp_eps(32, sample_rate, sigma, i, delta)
-      #print("epsilon: {}".format(epsilon))
     sess.run([privacy_accum_op])
-    spent_eps_deltas = priv_accountant.get_privacy_spent(sess, target_eps=target_eps)
-    #print(i, spent_eps_deltas)
+    '''
+    spent_eps_deltas = priv_accountant.get_privacy_spent(sess, target_deltas=target_delta)
+    privacy_loss.append(spent_eps_deltas)
+    print(i, spent_eps_deltas)
+    train_accuracy1 = accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})
+    train_accuracy.append(train_accuracy1)
+    print("step \t %d \t test accuracy \t %g"%(i, train_accuracy1));
+    '''
+
+    if i%100 == 0:
+      ##train_accuracy = accuracy.eval(feed_dict={x:batch[0], y_: batch[1], keep_prob: 1.0});
+      ##print("step \t %d \t training accuracy \t %g"%(i, train_accuracy));
+      train_accuracy1 = accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})
+      train_accuracy.append(train_accuracy1)
+      print("step \t %d \t test accuracy \t %g"%(i, train_accuracy1));
+      ##epsilon = comp_eps(32, sample_rate, sigma, i, delta)
+      ##print("epsilon: {}".format(epsilon))
+      spent_eps_deltas = priv_accountant.get_privacy_spent(sess, target_deltas=target_delta)
+      privacy_loss.append(spent_eps_deltas)
+      print(i, spent_eps_deltas)
+    '''
     _break = False;
     for _eps, _delta in spent_eps_deltas:
       if _delta >= delta:
@@ -196,9 +232,11 @@ def main(_):
         break;
     if _break == True:
         break;
+    '''
   duration = time.time() - start_time;
   print("test accuracy %g"%accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}));
   print(float(duration));
+  return train_accuracy, privacy_loss
   ###
 
 if __name__ == '__main__':
@@ -210,7 +248,8 @@ if __name__ == '__main__':
   parser.add_argument('--data_dir', type=str, default='/tmp/data',
                       help='Directory for storing data');
   FLAGS = parser.parse_args();
-  tf.app.run();
+  #tf.app.run();
+  main()
     
     
 
